@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+  <title>Bootstrap Example</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+</head>
+
+<nav class="navbar navbar-default">
+  <div class="container-fluid">
+    <div class="navbar-header">
+      <a class="navbar-brand" href="#">Basepair</a>
+    </div>
+    <ul class="nav navbar-nav">
+      <li class="active"><a href="D3_linegraph.html">Refresh the simulation</a></li>
+     
+    </ul>
+  </div>
+</nav>
+
+
+<center>
+  <div  class="container">
+   
+    
+    <div class="alert alert-info">
+      <h3>
+      <strong>Let me tell you why the new router better ? </strong> 
+      
+        
+    
+        In this graph , its a simulation speed of the two routers , where the green color represent the new router and black represent the old router ,
+        <br/>
+       The movement speed in figure calculated propotional to the average speed of all ping values . and as you see the new router with green color the packets move faster and stable over time compared to the old one.
+        <br/>
+        Also the figure show many huge spikes regards the old router which is not stable compare to the new router with the green color .
+    
+    
+    
+      </h3>
+    </div>
+   
+    
+  </div>
+
+
+  
+  <div style="max-width: 1024;" id="graph"></div>
+</center>
+
+<style>
+
+body {
+  font: 12px Helvetica;
+}
+
+.axis line {
+  fill: none;
+  stroke: rgb(255, 200, 200);
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.line {
+  fill: none;
+  stroke: rgb(255, 212, 18);
+  stroke-width: 2px;
+}
+
+</style>
+<body>
+<script src="https://d3js.org/d3.v3.js"></script>
+<script>
+
+var margin = {top: 100, right: 100, bottom: 30, left: 100},
+    width = 1030 - margin.left - margin.right,
+    height = 600 - margin.top - margin.bottom;
+
+var parseDate = d3.time.format("%Y").parse;
+
+var x = d3.time.scale()
+    .range([0, width]);
+
+var y = d3.scale.linear()
+    .range([height-20, 0]);
+
+var color = d3.scale.category10();
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .ticks(20)
+    .innerTickSize(15)
+    .outerTickSize(0)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .tickFormat(function(d) { return d + " ms";})
+    .ticks(20)
+    .innerTickSize(15)
+    .outerTickSize(0)
+    .orient("left");
+
+var line = d3.svg.line()
+    //.interpolate("basis")
+    .x(function(d) { return x(d.icmp_seq); })
+    .y(function(d) { return y(d.routers_ping); });
+
+
+
+    
+
+var svg = d3.select("#graph").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    d3.select("#graph").append('g')
+    .append('text')
+    .attr('text-anchor', 'middle')
+
+    .text('Distance')
+    ;
+    
+ 
+
+    svg.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 0 - margin.left)
+      .attr("x",0 - (height / 2))
+      .attr("dy", "1em")
+      .style("text-anchor", "middle")
+      .text("Time ms");   
+
+    
+
+function sum_json(jsonobj,keyname){
+sumv=0;
+  for(var cc=0;cc<jsonobj.length;cc++){
+  
+      sumv=sumv+jsonobj[cc][keyname];
+
+    
+
+  }
+
+  return sumv;
+}
+
+d3.tsv("routers_ping.tsv", function(error, data) {
+
+  
+
+  
+  color.domain(d3.keys(data[0]).filter(function(key) { return key !== "icmp_seq"; }));
+ 
+
+
+  data.forEach(function(d) 
+  {
+    //d.date = parseDate(d.date);
+    d.icmp_seq = parseDate(d.icmp_seq);
+
+  });
+
+  var routers = color.domain().map(function(name) {
+    return {
+      name: name,
+      values: data.map(function(d) {
+        return {icmp_seq: d.icmp_seq, routers_ping: +d[name]};
+      })
+    };
+  });
+
+
+  console.log("routers "+JSON.stringify(routers[0]['values'][0]['routers_ping']))
+
+  //calculate the average and evaluate the speed time 
+  sumt_oldrouter=sum_json(routers[0]['values'],'routers_ping')
+  sumt_newrouter=sum_json(routers[1]['values'],'routers_ping')
+  avg_oldrouter=sumt_oldrouter/routers[0]['values'].length
+  avg_newrouter=sumt_newrouter/routers[0]['values'].length
+
+  speed_oldrouter=(avg_oldrouter)*10000
+  speed_newrouter=(avg_newrouter)*10000
+
+
+  
+  console.log("speed_oldrouter ",speed_oldrouter)
+  console.log("speed_newrouter ",speed_newrouter)
+
+  var res = d3.map(function(d){ return d.key })
+
+
+
+  x.domain(d3.extent(data, function(d) { return d.icmp_seq; }));
+
+
+  y.domain([
+    d3.min(routers, function(c) { return d3.min(c.values, function(v) { return v.routers_ping; }); }),
+    d3.max(routers, function(c) { return d3.max(c.values, function(v) { return v.routers_ping; }); })
+  ]);
+
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis);
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis);
+
+
+  svg.append("line")
+        .attr(
+        {
+            "class":"horizontalGrid",
+            "x1" : 0,
+            "x2" : width,
+            "y1" : y(0),
+            "y2" : y(0),
+            "fill" : "none",
+            "shape-rendering" : "crispEdges",
+            "stroke" : "black",
+            "stroke-width" : "1px",
+            "stroke-dasharray": ("3, 3")
+        });
+
+
+  var router = svg.selectAll(".router")
+      .data(routers)
+    .enter().append("g")
+      .attr("class", "router");
+
+
+
+  var path = svg.selectAll(".router").append("path")
+      .attr("class", "line")
+      .attr("d", function(d) { return line(d.values); })
+      .style("stroke", function(d) { if (d.name == "old_router") 
+                                        {return "rgb(000,000,000)"}
+                                      else {return "rgb(000,200,000)";}
+                                         });
+
+
+
+  //var totalLength = path.node().getTotalLength();
+/*
+console.log(path);
+console.log(path.node());
+console.log(path[0][0]);
+console.log(path[0][1]);
+*/
+var totalLength = [path[0][0].getTotalLength(), path[0][1].getTotalLength()];
+
+console.log("totalLength ",totalLength);
+//console.log("path[0][0] ",path[0][0]);
+
+
+
+   d3.select(path[0][0])
+      .attr("stroke-dasharray", totalLength[0] + " " + totalLength[0] ) 
+      .attr("stroke-dashoffset", totalLength[0])
+      .transition()
+        .duration(speed_oldrouter)
+        .ease("linear")
+        .attr("stroke-dashoffset", 0);
+
+   d3.select(path[0][1])
+      .attr("stroke-dasharray", totalLength[1] + " " + totalLength[1] )
+      .attr("stroke-dashoffset", totalLength[1])
+      .transition()
+        .duration(speed_newrouter)
+        .ease("linear")
+        .attr("stroke-dashoffset", 0);
+
+
+});
+
+</script>
